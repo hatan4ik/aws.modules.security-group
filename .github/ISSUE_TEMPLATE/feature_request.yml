@@ -1,0 +1,53 @@
+name: Feature request
+description: Propose a new input, output, or behaviour for the module.
+title: "feat: "
+labels:
+  - enhancement
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What can you not do with the module today, and why does it matter?
+    validations:
+      required: true
+  - type: textarea
+    id: interface
+    attributes:
+      label: Proposed interface
+      description: The variables, outputs, or resources you expect, written as HCL.
+      render: hcl
+      placeholder: |
+        variable "example" {
+          description = "..."
+          type        = string
+          default     = null
+        }
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Where does it belong?
+      options:
+        - the security group (main.tf)
+        - ingress or egress rules (main.tf, variables.tf)
+        - a new advisory check
+        - a new example
+        - an integration suite
+        - not sure
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Workarounds you tried, such as bring-your-own rules or wrapping the module.
+  - type: checkboxes
+    id: constraints
+    attributes:
+      label: Design constraints
+      options:
+        - label: The proposal does not require the module to add data sources.
+        - label: The proposal is backwards compatible, or the breaking change is called out above.
+        - label: The proposal does not rename create, name, description, vpc_id, ingress_rules, egress_rules, or tags, or the aws_security_group.this / aws_vpc_security_group_*_rule.this resource labels, without a major version bump (three sibling repositories depend on this interface staying stable; see docs/CONSUMERS.md).

@@ -1,0 +1,95 @@
+name: Bug report
+description: The security group, a rule, a validation, or an output behaves differently from what the module documents.
+title: "bug: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Redact account IDs, security group IDs, and CIDR blocks that are not already public before pasting configuration or output.
+  - type: input
+    id: module-version
+    attributes:
+      label: Module version or commit
+      description: The tag or commit SHA pinned in your module `source` / `ref`.
+      placeholder: v1.0.0
+    validations:
+      required: true
+  - type: input
+    id: terraform-version
+    attributes:
+      label: Terraform version
+      description: Output of `terraform version`.
+      placeholder: 1.7.5
+    validations:
+      required: true
+  - type: input
+    id: provider-version
+    attributes:
+      label: AWS provider version
+      description: The `hashicorp/aws` version recorded in your `.terraform.lock.hcl`.
+      placeholder: 6.66.0
+    validations:
+      required: true
+  - type: dropdown
+    id: component
+    attributes:
+      label: Affected component
+      options:
+        - the security group (main.tf)
+        - ingress rules (main.tf)
+        - egress rules (main.tf)
+        - variable validation (variables.tf)
+        - outputs (outputs.tf)
+        - examples
+        - integration suite
+        - not sure
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Minimal reproduction
+      description: The smallest module call that reproduces the problem.
+      render: hcl
+      placeholder: |
+        module "security_group" {
+          source = "git::https://github.com/hatan4ik/aws.modules.security-group.git?ref=v1.0.0"
+
+          name   = "orders-api"
+          vpc_id = "vpc-0123456789abcdef0"
+
+          ingress_rules = {
+            from_alb = { from_port = 8080, to_port = 8080, referenced_security_group_id = "sg-0aaaaaaaaaaaaaaaa" }
+          }
+        }
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behaviour
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behaviour
+    validations:
+      required: true
+  - type: textarea
+    id: output
+    attributes:
+      label: Plan or apply output
+      description: Relevant `terraform plan` or `terraform apply` output, with account IDs and non-public CIDRs redacted.
+      render: shell
+  - type: checkboxes
+    id: confirmations
+    attributes:
+      label: Confirmations
+      options:
+        - label: I redacted account IDs, security group IDs, and non-public CIDR blocks from everything above.
+          required: true
+        - label: I searched existing issues for this problem.
+          required: true
