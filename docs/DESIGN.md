@@ -82,6 +82,23 @@ kept as-is:
   is new behaviour, not extraction, so it is deferred rather than added
   silently.
 
+## What changed in 1.1.0
+
+`create_before_destroy_group` (default `false`) was added after the user
+chose, when reviewing `docs/CONSUMERS.md`'s finding that migrating
+`aws.modules.alb` onto this module would silently drop the
+`create_before_destroy` guard ALB's own inline security group has today, to
+add the guard here rather than accept the regression or leave ALB
+unmigrated. It is purely additive: the default path is byte-identical to
+1.0.0 (same resource label, `aws_security_group.this[0]`, same plan for
+every existing caller), so this ships as a minor version with no interface
+break. See `main.tf`'s header comment for why it needed a second, mutually
+exclusive resource instead of a variable inside the existing one's
+`lifecycle` block — Terraform requires `lifecycle` arguments to be literal
+values. `docs/CONSUMERS.md`'s ALB section is updated accordingly: ALB's
+migration should set `create_before_destroy_group = true` to keep its
+current guarantee exactly.
+
 ## Deferred to v2
 
 Recorded here instead of implemented, so the interface stays exactly what
