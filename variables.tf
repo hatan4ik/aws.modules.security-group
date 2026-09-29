@@ -101,3 +101,10 @@ variable "tags" {
   default     = {}
   nullable    = false
 }
+
+variable "create_before_destroy_group" {
+  description = "When true, the security group is created with lifecycle.create_before_destroy, so a forced replacement (for example, a description change, which is immutable on aws_security_group) creates the new group before destroying the old one instead of the reverse, avoiding a window with no security group at all. Default false preserves this module's original behavior. Changing this value on a group that already exists replaces it, because it switches which of two mutually exclusive resources manages it — set it once, at adoption, not as an ongoing toggle."
+  type        = bool
+  default     = false
+  nullable    = false
+}

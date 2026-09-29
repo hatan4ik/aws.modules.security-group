@@ -1,11 +1,11 @@
 output "id" {
   description = "Security group ID, or null when create is false."
-  value       = var.create ? aws_security_group.this[0].id : null
+  value       = local.security_group_id
 }
 
 output "arn" {
   description = "Security group ARN, or null when create is false."
-  value       = var.create ? aws_security_group.this[0].arn : null
+  value       = local.security_group_arn
 }
 
 output "ingress_rule_ids" {
