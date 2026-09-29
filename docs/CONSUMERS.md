@@ -270,11 +270,12 @@ data "aws_vpc" "this" {
 }
 
 module "security_group" {
-  source = "git::https://github.com/hatan4ik/aws.modules.security-group.git?ref=<this-release-commit>" # v1.0.0
+  source = "git::https://github.com/hatan4ik/aws.modules.security-group.git?ref=<this-release-commit>" # v1.1.0
 
-  name        = "${var.name}-alb"
-  description = "Controls access to the ${var.name} ALB's listeners; egress is scoped to the VPC CIDR only."
-  vpc_id      = var.vpc_id
+  name                        = "${var.name}-alb"
+  description                 = "Controls access to the ${var.name} ALB's listeners; egress is scoped to the VPC CIDR only."
+  vpc_id                      = var.vpc_id
+  create_before_destroy_group = true
 
   # Keys are unchanged from today's local.ingress_rules, so the moved block
   # below matches every instance by key with no remapping.
@@ -319,15 +320,18 @@ repository.
 ### The `moved` blocks this migration needs
 
 The security group moves from a non-indexed singleton to this module's
-`count`-based `[0]` instance; the ingress rule is `for_each`-keyed on both
-sides with an unchanged key set, so one whole-resource `moved` block covers
-it; the egress rule moves from a non-indexed singleton to a specific
-`for_each` key (`"vpc"`) in this module's `egress_rules` map:
+`count`-based `[0]` instance — `this_cbd[0]`, not `this[0]`, because the
+rewrite sets `create_before_destroy_group = true` to preserve ALB's existing
+`create_before_destroy` guarantee (see the behavioural note above); the
+ingress rule is `for_each`-keyed on both sides with an unchanged key set, so
+one whole-resource `moved` block covers it; the egress rule moves from a
+non-indexed singleton to a specific `for_each` key (`"vpc"`) in this module's
+`egress_rules` map:
 
 ```hcl
 moved {
   from = aws_security_group.this
-  to   = module.security_group.aws_security_group.this[0]
+  to   = module.security_group.aws_security_group.this_cbd[0]
 }
 
 moved {
@@ -343,28 +347,24 @@ moved {
 
 ### Behavioural notes for whoever performs this migration
 
-- **`create_before_destroy` is lost, and this matters.** ALB's own
-  `aws_security_group.this` sets `lifecycle { create_before_destroy = true
-  }` today, so that a change forcing replacement (most notably, changing
-  `description`, which is immutable on `aws_security_group`) creates the new
-  group and re-attaches it before destroying the old one, avoiding a window
-  where the ALB has no security group at all. This module's
-  `aws_security_group.this` (preserved byte-for-byte from
-  `aws.modules.ecs-service`'s submodule, which never had this lifecycle
-  block, because an ECS service's task security group replacement was never
-  guarded this way) has **no** `create_before_destroy`. Migrating ALB to
-  call this module therefore trades away that protection: a forced
-  replacement of the security group (again, primarily a `description`
-  change, which the module's own README already calls out as something to
-  keep stable) would destroy the old group before creating the new one,
-  which fails outright while the group is still attached to the ALB's
-  listeners, or briefly detaches the ALB if the attachment is updated first.
-  This is a real behavioural regression, not a cosmetic difference, and
-  should be weighed explicitly — and probably raised as a `Deferred to v2`
-  candidate for this module itself (an optional
-  `create_before_destroy_group` input) — before ALB's migration ships. It is
-  flagged here rather than decided, per this task's boundary: a separate
-  step performs that migration.
+- **`create_before_destroy` — resolved in 1.1.0, use `create_before_destroy_group = true`.**
+  ALB's own `aws_security_group.this` sets
+  `lifecycle { create_before_destroy = true }` today, so that a change
+  forcing replacement (most notably, changing `description`, which is
+  immutable on `aws_security_group`) creates the new group and re-attaches it
+  before destroying the old one, avoiding a window where the ALB has no
+  security group at all. 1.0.0 of this module had no equivalent (preserved
+  byte-for-byte from `aws.modules.ecs-service`'s submodule, which never
+  needed this guard), which would have been a real regression, not a
+  cosmetic difference, if ALB had migrated onto 1.0.0 as-is. 1.1.0 adds
+  `create_before_destroy_group` (see `docs/DESIGN.md`, "What changed in
+  1.1.0") for exactly this case: the rewrite above already sets it to
+  `true`, which reproduces ALB's current guarantee exactly, at the cost of
+  one additional `moved`-adjacent fact — the resource this rule set attaches
+  to is `aws_security_group.this_cbd[0]`, not `aws_security_group.this[0]`,
+  because `create_before_destroy` cannot live on the same resource
+  conditionally (Terraform requires it to be a literal). The `moved` blocks
+  below already target `this_cbd[0]` accordingly.
 - **The `CKV_AWS_260` skip relocation** above is the other consequence of
   moving a resource across a module boundary: inline `checkov:skip` comments
   do not travel with `moved` blocks, only the state does. Confirm the
