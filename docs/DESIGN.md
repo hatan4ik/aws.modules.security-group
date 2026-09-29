@@ -82,6 +82,23 @@ kept as-is:
   is new behaviour, not extraction, so it is deferred rather than added
   silently.
 
+## What changed in 1.1.0
+
+`create_before_destroy_group` (default `false`) was added after the user
+chose, when reviewing `docs/CONSUMERS.md`'s finding that migrating
+`aws.modules.alb` onto this module would silently drop the
+`create_before_destroy` guard ALB's own inline security group has today, to
+add the guard here rather than accept the regression or leave ALB
+unmigrated. It is purely additive: the default path is byte-identical to
+1.0.0 (same resource label, `aws_security_group.this[0]`, same plan for
+every existing caller), so this ships as a minor version with no interface
+break. See `main.tf`'s header comment for why it needed a second, mutually
+exclusive resource instead of a variable inside the existing one's
+`lifecycle` block — Terraform requires `lifecycle` arguments to be literal
+values. `docs/CONSUMERS.md`'s ALB section is updated accordingly: ALB's
+migration should set `create_before_destroy_group = true` to keep its
+current guarantee exactly.
+
 ## Deferred to v2
 
 Recorded here instead of implemented, so the interface stays exactly what
@@ -179,12 +196,33 @@ traffic between members of the same group (see `examples/self-referencing-cluste
   one of the two ports, `self` combined with another source), the `self`
   special case's positive behaviour, and the `create = false` no-op path in
   isolation.
-- Anything that needs `command = apply` (the immutable-`description`
-  replacement behaviour is not one of these; it is fully visible at plan
-  time as a `# forces replacement` plan annotation and is covered with
-  `command = plan`) is isolated into its own file per the common brief's
-  `run`-block-state-sharing gotcha; this module currently needs none, and
-  `tests/README.md` says so explicitly if that ever changes.
+- The immutable-`description`-replaces-the-group behaviour (README,
+  "Description replaces the group") was investigated for a dedicated test
+  and deliberately **not** added, based on an empirical finding made while
+  building this repository, not an assumption: `mock_provider "aws" {}`
+  does not encode a resource's `ForceNew` fields (the public
+  `terraform providers schema -json` output does not expose them either;
+  they live only in the provider's internal diff logic), so an
+  apply-then-plan test that changes `description` against `mock_provider`
+  plans an in-place update (`# aws_security_group.this[0] will be updated
+  in-place`) where the real AWS provider requires replacement. A test that
+  asserted replacement under `mock_provider` would assert something false
+  about this module's actual behaviour against the real API, which is worse
+  than asserting nothing, so none was added. The behaviour itself is real
+  (AWS has no API to update a security group's description) and stays
+  documented in the README as an inherited, production-relied-upon
+  guarantee (`aws.modules.ecs-service` already depends on it) rather than a
+  tested one; `tests/integration/smoke.tftest.hcl` does not cover it either,
+  since a smoke suite applies once and tears down without re-planning a
+  change.
+- One case genuinely needs `command = apply`: `self = true`'s resolved
+  `referenced_security_group_id` can only be compared against the group's
+  own `id` once both are known, and computed attributes are unknown under
+  `mock_provider` at plan time (the same finding as above, applied to `id`
+  instead of `description`). `tests/self_reference.tftest.hcl` isolates this
+  single apply-based run into its own file per the common brief's
+  `run`-block-state-sharing gotcha, so it cannot leak state into any
+  `command = plan` run elsewhere in `tests/`.
 - `tests/integration/smoke.tftest.hcl` applies a real group with one ingress
   and one egress rule against a disposable VPC fixture
   (`tests/integration/setup`) and destroys everything afterward. It is
