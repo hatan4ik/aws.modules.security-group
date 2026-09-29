@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-09-29
+
+### Added
+
+- `create_before_destroy_group` (default `false`, preserving all existing behavior): when `true`, the security group is created with `lifecycle.create_before_destroy`, so a forced replacement (for example, a `description` change, which is immutable on `aws_security_group`) creates the new group before destroying the old one, avoiding a window with no security group at all. Implemented as a second, mutually exclusive resource (`aws_security_group.this_cbd`) rather than a variable inside `aws_security_group.this`'s own `lifecycle` block, because Terraform requires `lifecycle` arguments to be literal values, never a variable or expression. `id`, `arn`, and every ingress/egress rule resolve to whichever of the two resources is active, via `local.security_group_id`/`local.security_group_arn`; no existing caller's resource address or plan changes, since the default path still produces `aws_security_group.this[0]` exactly as before. Added to support `aws.modules.alb`'s planned migration onto this module without losing the `create_before_destroy` guard its own inline security group has today.
+
 ## [1.0.0] - 2026-09-27
 
 Initial release. Extracted from `hatan4ik/aws.modules.ecs-service`'s internal `modules/security-group` submodule (interface unchanged: same variable names, types, defaults, and validations; same resource labels; same outputs) and promoted to its own module so the security-group primitive that `aws.modules.ecs-service`, `aws.modules.vpc`'s `modules/endpoints`, and `aws.modules.alb` each currently duplicate can be maintained, tested, and versioned once. See [docs/DESIGN.md](docs/DESIGN.md) for why, and [docs/CONSUMERS.md](docs/CONSUMERS.md) for the exact migration each of the three consumers needs, including the `moved` block HCL for the two that hand-roll their own security-group resources today.
