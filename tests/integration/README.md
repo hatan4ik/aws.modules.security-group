@@ -15,12 +15,14 @@ collide.
 | Suite | What it proves | Needs | Typical time |
 | --- | --- | --- | --- |
 | `smoke.tftest.hcl` | A real security group with one ingress rule (SSH from a private CIDR) and one egress rule (HTTPS scoped to the disposable VPC's own CIDR, never left unrestricted) is accepted by the API; `id`, `arn`, `ingress_rule_ids`, and `egress_rule_ids` all return genuine AWS identifiers in the exact shapes the interface promises (`sg-...`, `arn:...:security-group/...`, `sgr-...`); tags merge correctly; everything is destroyed cleanly afterward. | credentials, region | about a minute |
+| `create_before_destroy_group.tftest.hcl` | With `create_before_destroy_group = true`, a description-only change replaces the group create-before-destroy without a duplicate-name failure: the group's real name is AWS-generated from `name_prefix = "<name>-"`, the second apply returns a new `sg-...` id, the rule is re-created on the replacement, and the old group is deleted (the 1.2.0 fix for `InvalidGroup.Duplicate`). | credentials, region | about two minutes |
 
 ## Run it in your account
 
 ```bash
 export AWS_PROFILE=<your profile>   # or AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY / AWS_SESSION_TOKEN
 export AWS_REGION=<region>
+make integration-create_before_destroy_group
 make integration-smoke              # terraform init -test-directory=tests/integration && terraform test -test-directory=tests/integration -filter=tests/integration/smoke.tftest.hcl
 ```
 
