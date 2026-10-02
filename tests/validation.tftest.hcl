@@ -306,3 +306,244 @@ run "rejects_name_longer_than_255_characters" {
 
   expect_failures = [var.name]
 }
+
+# --- ip_protocol (1.2.0) --------------------------------------------------
+
+run "rejects_ingress_rule_with_unknown_protocol_name" {
+  command = plan
+
+  variables {
+    ingress_rules = {
+      bad = { ip_protocol = "tcpx", from_port = 443, to_port = 443, cidr_ipv4 = "10.0.0.0/16" }
+    }
+  }
+
+  expect_failures = [var.ingress_rules]
+}
+
+run "rejects_ingress_rule_with_protocol_number_above_255" {
+  command = plan
+
+  variables {
+    ingress_rules = {
+      bad = { ip_protocol = "256", cidr_ipv4 = "10.0.0.0/16" }
+    }
+  }
+
+  expect_failures = [var.ingress_rules]
+}
+
+run "accepts_ingress_rule_with_portless_protocol_number" {
+  command = plan
+
+  variables {
+    ingress_rules = {
+      esp = { ip_protocol = "50", cidr_ipv4 = "10.0.0.0/16" }
+    }
+  }
+
+  assert {
+    condition     = aws_vpc_security_group_ingress_rule.this["esp"].ip_protocol == "50" && aws_vpc_security_group_ingress_rule.this["esp"].from_port == null && aws_vpc_security_group_ingress_rule.this["esp"].to_port == null
+    error_message = "A protocol AWS does not use ports for (50, ESP) must be accepted without from_port/to_port."
+  }
+}
+
+run "rejects_ingress_rule_with_portless_protocol_and_one_port" {
+  command = plan
+
+  variables {
+    ingress_rules = {
+      bad = { ip_protocol = "50", from_port = 0, cidr_ipv4 = "10.0.0.0/16" }
+    }
+  }
+
+  expect_failures = [var.ingress_rules]
+}
+
+run "accepts_ingress_icmp_type_greater_than_code" {
+  command = plan
+
+  variables {
+    ingress_rules = {
+      echo = { ip_protocol = "icmp", from_port = 8, to_port = 0, cidr_ipv4 = "10.0.0.0/16" }
+    }
+  }
+
+  assert {
+    condition     = aws_vpc_security_group_ingress_rule.this["echo"].from_port == 8 && aws_vpc_security_group_ingress_rule.this["echo"].to_port == 0
+    error_message = "ICMP from_port/to_port are type/code, not a range: echo request (type 8, code 0) must be accepted."
+  }
+}
+
+run "rejects_ingress_icmp_code_above_255" {
+  command = plan
+
+  variables {
+    ingress_rules = {
+      bad = { ip_protocol = "icmp", from_port = 3, to_port = 256, cidr_ipv4 = "10.0.0.0/16" }
+    }
+  }
+
+  expect_failures = [var.ingress_rules]
+}
+
+run "rejects_ingress_icmpv6_type_above_255" {
+  command = plan
+
+  variables {
+    ingress_rules = {
+      bad = { ip_protocol = "icmpv6", from_port = 256, to_port = 0, cidr_ipv6 = "::/0" }
+    }
+  }
+
+  expect_failures = [var.ingress_rules]
+}
+
+run "rejects_ingress_icmp_without_ports" {
+  command = plan
+
+  variables {
+    ingress_rules = {
+      bad = { ip_protocol = "icmp", cidr_ipv4 = "10.0.0.0/16" }
+    }
+  }
+
+  expect_failures = [var.ingress_rules]
+}
+
+run "rejects_egress_rule_with_unknown_protocol_name" {
+  command = plan
+
+  variables {
+    egress_rules = {
+      bad = { ip_protocol = "tcpx", from_port = 443, to_port = 443, cidr_ipv4 = "10.0.0.0/16" }
+    }
+  }
+
+  expect_failures = [var.egress_rules]
+}
+
+run "rejects_egress_rule_with_protocol_number_above_255" {
+  command = plan
+
+  variables {
+    egress_rules = {
+      bad = { ip_protocol = "256", cidr_ipv4 = "10.0.0.0/16" }
+    }
+  }
+
+  expect_failures = [var.egress_rules]
+}
+
+run "accepts_egress_rule_with_portless_protocol_number" {
+  command = plan
+
+  variables {
+    egress_rules = {
+      esp = { ip_protocol = "50", cidr_ipv4 = "10.0.0.0/16" }
+    }
+  }
+
+  assert {
+    condition     = aws_vpc_security_group_egress_rule.this["esp"].ip_protocol == "50" && aws_vpc_security_group_egress_rule.this["esp"].from_port == null && aws_vpc_security_group_egress_rule.this["esp"].to_port == null
+    error_message = "A protocol AWS does not use ports for (50, ESP) must be accepted without from_port/to_port."
+  }
+}
+
+run "rejects_egress_rule_with_portless_protocol_and_one_port" {
+  command = plan
+
+  variables {
+    egress_rules = {
+      bad = { ip_protocol = "50", from_port = 0, cidr_ipv4 = "10.0.0.0/16" }
+    }
+  }
+
+  expect_failures = [var.egress_rules]
+}
+
+run "accepts_egress_icmp_type_greater_than_code" {
+  command = plan
+
+  variables {
+    egress_rules = {
+      echo = { ip_protocol = "icmp", from_port = 8, to_port = 0, cidr_ipv4 = "10.0.0.0/16" }
+    }
+  }
+
+  assert {
+    condition     = aws_vpc_security_group_egress_rule.this["echo"].from_port == 8 && aws_vpc_security_group_egress_rule.this["echo"].to_port == 0
+    error_message = "ICMP from_port/to_port are type/code, not a range: echo request (type 8, code 0) must be accepted."
+  }
+}
+
+run "rejects_egress_icmp_code_above_255" {
+  command = plan
+
+  variables {
+    egress_rules = {
+      bad = { ip_protocol = "icmp", from_port = 3, to_port = 256, cidr_ipv4 = "10.0.0.0/16" }
+    }
+  }
+
+  expect_failures = [var.egress_rules]
+}
+
+run "rejects_egress_icmpv6_type_above_255" {
+  command = plan
+
+  variables {
+    egress_rules = {
+      bad = { ip_protocol = "icmpv6", from_port = 256, to_port = 0, cidr_ipv6 = "::/0" }
+    }
+  }
+
+  expect_failures = [var.egress_rules]
+}
+
+run "rejects_egress_icmp_without_ports" {
+  command = plan
+
+  variables {
+    egress_rules = {
+      bad = { ip_protocol = "icmp", cidr_ipv4 = "10.0.0.0/16" }
+    }
+  }
+
+  expect_failures = [var.egress_rules]
+}
+
+# --- tags (1.2.0) ---------------------------------------------------------
+
+run "rejects_tag_key_with_reserved_aws_prefix" {
+  command = plan
+
+  variables {
+    tags = { "aws:cloudformation:stack-name" = "x" }
+  }
+
+  expect_failures = [var.tags]
+}
+
+run "rejects_tag_key_with_reserved_aws_prefix_in_upper_case" {
+  command = plan
+
+  variables {
+    tags = { "AWS:Team" = "x" }
+  }
+
+  expect_failures = [var.tags]
+}
+
+run "accepts_tag_key_containing_but_not_starting_with_aws" {
+  command = plan
+
+  variables {
+    tags = { "team:aws:owner" = "x" }
+  }
+
+  assert {
+    condition     = aws_security_group.this[0].tags["team:aws:owner"] == "x"
+    error_message = "Only the aws: prefix is reserved; other keys must pass through."
+  }
+}
