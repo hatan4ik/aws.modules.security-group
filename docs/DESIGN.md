@@ -99,6 +99,40 @@ values. `docs/CONSUMERS.md`'s ALB section is updated accordingly: ALB's
 migration should set `create_before_destroy_group = true` to keep its
 current guarantee exactly.
 
+## What changed in 1.2.0
+
+1.1.0's `aws_security_group.this_cbd` kept the fixed `name = var.name`.
+Security-group names are unique per VPC, and `create_before_destroy` creates
+the replacement while the old group still exists, so the replacement a
+`description` change forces (the headline case the feature exists for) was
+rejected by AWS with `InvalidGroup.Duplicate`. The failure was safe (the old
+group survived, the apply errored), but the "no window without a group"
+guarantee only held when `name` or `vpc_id` also changed in the same update.
+
+`this_cbd` now sets `name_prefix = "${var.name}-"` instead of `name`, the same
+way the AWS provider itself solves this: each generation gets an AWS-generated
+name (the prefix plus a 26-character unique suffix), so old and new never
+collide. The `Name` tag stays `var.name`. Because the provider caps
+`name_prefix` at 229 characters, a precondition on `this_cbd` limits `name` to
+228 characters on that path only. The default path (`aws_security_group.this`,
+`create_before_destroy_group = false`) is untouched and still uses
+`name = var.name`, so this is a minor release for every default caller. For a
+caller that already opted in, it is a behaviour change: the group's `name`
+attribute changes from exactly `var.name` to a generated value, which
+replaces the group once (create-before-destroy, so without a gap) on the
+first apply after upgrading. See `CHANGELOG.md` for the exact upgrade note.
+
+mock_provider cannot reproduce a ForceNew replacement or AWS's per-VPC name
+uniqueness, so the contract tests pin the naming contract and
+`tests/integration/create_before_destroy_group.tftest.hcl` proves the real
+description-only replacement against the API.
+
+1.2.0 also adds three validations that only reject values AWS rejects anyway
+(a reserved `aws:` tag-key prefix, an unrecognised `ip_protocol`, an ICMP type
+or code above 255) and loosens two that rejected valid configurations (ICMP
+type/code no longer need `from_port <= to_port`, so type 8 code 0 is
+accepted; protocol numbers other than tcp, udp, and icmp may omit ports).
+
 ## Deferred to v2
 
 Recorded here instead of implemented, so the interface stays exactly what

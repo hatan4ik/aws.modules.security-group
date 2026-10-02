@@ -270,7 +270,7 @@ data "aws_vpc" "this" {
 }
 
 module "security_group" {
-  source = "git::https://github.com/hatan4ik/aws.modules.security-group.git?ref=<this-release-commit>" # v1.1.0
+  source = "git::https://github.com/hatan4ik/aws.modules.security-group.git?ref=<this-release-commit>" # v1.2.0
 
   name                        = "${var.name}-alb"
   description                 = "Controls access to the ${var.name} ALB's listeners; egress is scoped to the VPC CIDR only."
@@ -365,6 +365,22 @@ moved {
   because `create_before_destroy` cannot live on the same resource
   conditionally (Terraform requires it to be a literal). The `moved` blocks
   below already target `this_cbd[0]` accordingly.
+- **The group's `name` attribute is generated on the `this_cbd` path (1.2.0).**
+  In 1.1.0 `this_cbd` used the fixed `name = var.name`, so a description-only
+  change failed with `InvalidGroup.Duplicate` (the replacement was created
+  first, with the same name, in the same VPC). From 1.2.0 `this_cbd` uses
+  `name_prefix = "${var.name}-"`: with this rewrite the group's name becomes
+  `<var.name>-alb-` followed by a 26-character AWS-generated suffix instead of
+  exactly `"${var.name}-alb"`, and the `Name` tag stays `"${var.name}-alb"`
+  via `local.tags`. Consequently the `moved` block from ALB's fixed-name
+  inline group to `this_cbd[0]` is **not** a zero-change move: the first plan
+  shows one create-before-destroy replacement of the group (`name_prefix`
+  forces it), its rules re-created on the new group, and a new group ID
+  flowing into the load balancer's `security_groups`. The same one-time
+  replacement applies to a caller already on 1.1.0 with
+  `create_before_destroy_group = true`. Anything outside this module that
+  references the old group ID (another group's rule, for example) blocks the
+  old group's deletion until it is updated too.
 - **The `CKV_AWS_260` skip relocation** above is the other consequence of
   moving a resource across a module boundary: inline `checkov:skip` comments
   do not travel with `moved` blocks, only the state does. Confirm the

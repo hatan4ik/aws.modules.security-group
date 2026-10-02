@@ -12,7 +12,7 @@ TFDOCS_CONFIG := $(CURDIR)/.terraform-docs.yml
 # docs drift check in CI.
 TFDOCS_VERSION := v0.20.0
 
-.PHONY: check fmt fmt-fix init validate lint test docs-version docs docs-check security lock integration-smoke clean
+.PHONY: check fmt fmt-fix init validate lint test docs-version docs docs-check security lock integration-smoke integration-create_before_destroy_group clean
 
 check: fmt validate lint test docs-check security
 
@@ -79,7 +79,7 @@ security:
 # Integration suites apply the module for real in the caller's own account and
 # destroy everything afterwards. Credentials and region come from the
 # environment; see tests/integration/README.md.
-integration-smoke: integration-%:
+integration-smoke integration-create_before_destroy_group: integration-%:
 	@[ -n "$$AWS_REGION$$AWS_DEFAULT_REGION" ] || { echo "error: set AWS_REGION (and credentials) for the account that will host the certificate under test" >&2; exit 1; }
 	@echo "==> integration $* (real apply in $${AWS_REGION:-$$AWS_DEFAULT_REGION})"
 	@terraform init -backend=false -input=false -test-directory=tests/integration >/dev/null
